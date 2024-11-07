@@ -3,6 +3,93 @@ import { ethers } from 'ethers';
 import '../styles/ComplaintsDisplay.css';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../utils/contractConfig';
 
+const ComplaintCard = ({ complaint }) => {
+  const [imageError, setImageError] = useState(false);
+
+  const isImage = (cid) => {
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    return imageExtensions.some(ext => complaint.mediaCID.toLowerCase().includes(ext));
+  };
+
+  const renderMediaPreview = () => {
+    if (!complaint.mediaCID) return null;
+
+    const ipfsUrl = `https://ipfs.io/ipfs/${complaint.mediaCID}`;
+
+    if (isImage(complaint.mediaCID) && !imageError) {
+      return (
+        <div className="media-preview">
+          <img 
+            src={ipfsUrl}
+            alt="Report Evidence"
+            onError={() => setImageError(true)}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <a 
+        href={ipfsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="evidence-link"
+      >
+        <i className="fas fa-file-alt"></i>
+        View Evidence
+      </a>
+    );
+  };
+
+  return (
+    <div className="complaint-card">
+      <div className="complaint-meta">
+        <span className="timestamp">
+          <i className="far fa-clock"></i>
+          {new Date(complaint.timestamp * 1000).toLocaleString()}
+        </span>
+        <span className={`status-badge ${complaint.isValid ? 'valid' : 'pending'}`}>
+          {complaint.isValid ? 'Verified' : 'Pending'}
+        </span>
+      </div>
+      
+      <div className="complaint-body">
+        <div className="reporter">
+          <i className="far fa-user"></i>
+          Reporter: {complaint.reporter.slice(0, 6)}...{complaint.reporter.slice(-4)}
+        </div>
+
+        <div className="complaint-section">
+          <div className="section-title">Report Details</div>
+          <p className="report-text">{complaint.reportText}</p>
+        </div>
+
+        {complaint.mediaCID && (
+          <div className="media-section">
+            <div className="section-title">Evidence</div>
+            {renderMediaPreview()}
+          </div>
+        )}
+
+        <div className="details-grid">
+          <div className="detail-item">
+            <span className="detail-label">Category</span>
+            <span className="detail-value">{complaint.category}</span>
+          </div>
+          <div className="detail-item">
+            <span className="detail-label">Location</span>
+            <span className="detail-value">{complaint.location}</span>
+          </div>
+          <div className="detail-item">
+            <span className="detail-label">City</span>
+            <span className="detail-value">{complaint.city}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ComplaintsDisplay = ({ selectedRole }) => {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -11,8 +98,9 @@ const ComplaintsDisplay = ({ selectedRole }) => {
   const getComplaintsArray = async (contract, role) => {
     let complaints = [];
     let index = 0;
-    
-    while (true) {
+    let continueLoop = true;
+
+    while (continueLoop && index < 100) {
       try {
         let complaint;
         switch(role) {
@@ -28,7 +116,12 @@ const ComplaintsDisplay = ({ selectedRole }) => {
           default:
             throw new Error('Invalid role');
         }
-        
+
+        if (complaint.reporter === '0x0000000000000000000000000000000000000000') {
+          continueLoop = false;
+          break;
+        }
+
         complaints.push({
           reporter: complaint.reporter,
           reportText: complaint.reportText,
@@ -39,14 +132,14 @@ const ComplaintsDisplay = ({ selectedRole }) => {
           timestamp: complaint.timestamp.toNumber(),
           isValid: complaint.isValid
         });
-        
+
         index++;
       } catch (error) {
-        // When we reach the end of the array, break the loop
-        break;
+        console.log("Reached end of complaints or error:", error);
+        continueLoop = false;
       }
     }
-    
+
     return complaints;
   };
 
@@ -60,12 +153,12 @@ const ComplaintsDisplay = ({ selectedRole }) => {
       }
 
       const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
       const signer = provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
       const fetchedComplaints = await getComplaintsArray(contract, selectedRole);
       
-      // Sort complaints by timestamp (newest first)
       const sortedComplaints = fetchedComplaints.sort((a, b) => b.timestamp - a.timestamp);
       
       setComplaints(sortedComplaints);
@@ -86,16 +179,19 @@ const ComplaintsDisplay = ({ selectedRole }) => {
   return (
     <div className="complaints-container">
       <div className="complaints-header">
-        <h2>{selectedRole.toUpperCase()} Department Reports</h2>
+        <div className="header-left">
+          <h2>Recent Reports</h2>
+          <span className="report-count">{complaints.length} reports</span>
+        </div>
         <button onClick={fetchComplaints} className="refresh-button">
-          Refresh Data
+          <i className="fas fa-sync-alt"></i> Refresh
         </button>
       </div>
 
       {loading && (
         <div className="loading-container">
           <div className="loading-spinner"></div>
-          <p>Loading complaints...</p>
+          <p>Loading reports...</p>
         </div>
       )}
 
@@ -103,31 +199,16 @@ const ComplaintsDisplay = ({ selectedRole }) => {
 
       <div className="complaints-grid">
         {complaints.map((complaint, index) => (
-          <div key={index} className="complaint-card">
-            <div className="complaint-header">
-              <span className="complaint-timestamp">
-                {new Date(complaint.timestamp * 1000).toLocaleString()}
-              </span>
-              <span className={`status ${complaint.isValid ? 'valid' : 'pending'}`}>
-                {complaint.isValid ? 'Verified' : 'Pending'}
-              </span>
-            </div>
-            
-            <div className="reporter-address">
-              Reporter: {complaint.reporter.slice(0, 6)}...{complaint.reporter.slice(-4)}
-            </div>
-            
-            <div className="complaint-content">
-              <p className="report-text">{complaint.reportText}</p>
-              <div className="complaint-details">
-                <p><strong>Category:</strong> {complaint.category}</p>
-                <p><strong>Location:</strong> {complaint.location}</p>
-                <p><strong>City:</strong> {complaint.city}</p>
-              </div>
-            </div>
-          </div>
+          <ComplaintCard key={index} complaint={complaint} />
         ))}
       </div>
+
+      {!loading && complaints.length === 0 && (
+        <div className="no-data">
+          <i className="far fa-folder-open"></i>
+          <p>No reports found for {selectedRole} department</p>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import WalletButton from '../components/WalletButton';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import ComplaintsDisplay from '../components/ComplaintsDisplay';
 import '../styles/ConnectWallet.css';
 
 const ConnectWallet = () => {
   const [selectedRole, setSelectedRole] = useState('');
   const [error, setError] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [account, setAccount] = useState('');
+  const navigate = useNavigate();
 
   const handleWalletConnect = async () => {
     if (!selectedRole) {
@@ -18,26 +16,14 @@ const ConnectWallet = () => {
     
     try {
       if (window.ethereum) {
-        // Request account access
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         const account = accounts[0];
         console.log('Wallet connected:', account);
         
-        // Set the connected account and connection status
-        setAccount(account);
-        setIsConnected(true);
-        setError('');
-
-        // Listen for account changes
-        window.ethereum.on('accountsChanged', (accounts) => {
-          if (accounts.length > 0) {
-            setAccount(accounts[0]);
-          } else {
-            setIsConnected(false);
-            setAccount('');
-          }
-        });
-
+        localStorage.setItem('selectedRole', selectedRole);
+        localStorage.setItem('account', account);
+        
+        navigate('/reports');
       } else {
         setError('Please install MetaMask!');
       }
@@ -47,43 +33,49 @@ const ConnectWallet = () => {
     }
   };
 
-  const handleRoleChange = (event) => {
-    setSelectedRole(event.target.value);
-    setError('');
-  };
-
   return (
     <>
       <Navbar />
       <div className="connect-wallet-container">
-        {!isConnected ? (
-          <div className="wallet-content">
-            <h1 className="admin-title">Snitch Admin</h1>
-            
+        <div className="decoration decoration-1"></div>
+        <div className="decoration decoration-2"></div>
+
+        <div className="wallet-content">
+          <h1 className="admin-title">Snitch Admin</h1>
+          
+          <p className="welcome-text">
+            Welcome to the administrative portal. Please select your department and connect your wallet to continue.
+          </p>
+
+          <div className="department-section">
+            <label className="section-label">Select Department</label>
             <select 
               className="role-selector"
               value={selectedRole}
-              onChange={handleRoleChange}
+              onChange={(e) => {
+                setSelectedRole(e.target.value);
+                setError('');
+              }}
             >
-              <option value="">Select Your Role</option>
+              <option value="">Choose your department</option>
               <option value="police">Police Department</option>
               <option value="customs">Customs Department</option>
               <option value="income-tax">Income Tax Department</option>
             </select>
-
-            <WalletButton onClick={handleWalletConnect} />
-            
-            {error && <p className="error-message">{error}</p>}
           </div>
-        ) : (
-          <>
-            <div className="connected-status">
-              <p>Connected Account: {account.slice(0, 6)}...{account.slice(-4)}</p>
-              <p>Department: {selectedRole.toUpperCase()}</p>
-            </div>
-            <ComplaintsDisplay selectedRole={selectedRole} />
-          </>
-        )}
+
+          <button 
+            className="connect-button"
+            onClick={handleWalletConnect}
+          >
+            <i className="fas fa-wallet"></i>
+            Connect Wallet
+          </button>
+          
+          {error && <div className="error-message">
+            <i className="fas fa-exclamation-circle"></i> {error}
+          </div>}
+        </div>
       </div>
     </>
   );
