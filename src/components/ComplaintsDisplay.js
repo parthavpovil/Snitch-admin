@@ -95,76 +95,62 @@ const ComplaintsDisplay = ({ selectedRole }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const getComplaintsArray = async (contract, role) => {
-    let complaints = [];
-    let index = 0;
-    let continueLoop = true;
-
-    while (continueLoop && index < 100) {
-      try {
-        let complaint;
-        switch(role) {
-          case 'police':
-            complaint = await contract.policeComplaints(index);
-            break;
-          case 'customs':
-            complaint = await contract.customsComplaints(index);
-            break;
-          case 'income-tax':
-            complaint = await contract.incomeTaxComplaints(index);
-            break;
-          default:
-            throw new Error('Invalid role');
-        }
-
-        if (complaint.reporter === '0x0000000000000000000000000000000000000000') {
-          continueLoop = false;
-          break;
-        }
-
-        complaints.push({
-          reporter: complaint.reporter,
-          reportText: complaint.reportText,
-          category: complaint.category,
-          location: complaint.location,
-          city: complaint.city,
-          mediaCID: complaint.mediaCID,
-          timestamp: complaint.timestamp.toNumber(),
-          isValid: complaint.isValid
-        });
-
-        index++;
-      } catch (error) {
-        console.log("Reached end of complaints or error:", error);
-        continueLoop = false;
-      }
-    }
-
-    return complaints;
-  };
-
   const fetchComplaints = async () => {
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      setError('');
+      if (typeof window.ethereum !== 'undefined') {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
+        const signer = await provider.getSigner();
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-      if (!window.ethereum) {
-        throw new Error('Please install MetaMask!');
+        // Determine which array to fetch based on selectedRole
+        let complaintArray = [];
+        let index = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          try {
+            let complaint;
+            if (selectedRole === 'police') {
+              complaint = await contract.policeComplaints(index);
+            } else if (selectedRole === 'customs') {
+              complaint = await contract.customsComplaints(index);
+            } else if (selectedRole === 'incometax') {
+              complaint = await contract.incomeTaxComplaints(index);
+            }
+
+            if (complaint && complaint.reporter !== '0x0000000000000000000000000000000000000000') {
+              complaintArray.push({
+                reporter: complaint.reporter,
+                reportText: complaint.reportText,
+                category: complaint.category,
+                location: complaint.location,
+                city: complaint.city,
+                mediaCID: complaint.mediaCID,
+                timestamp: complaint.timestamp.toString(),
+                isValid: complaint.isValid
+              });
+              index++;
+            } else {
+              hasMore = false;
+            }
+          } catch (err) {
+            console.log('Reached end of array or error:', err);
+            hasMore = false;
+          }
+        }
+
+        console.log('Fetched complaints:', complaintArray);
+        setComplaints(complaintArray);
+      } else {
+        throw new Error('MetaMask is not installed');
       }
-
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-      const signer = provider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-
-      const fetchedComplaints = await getComplaintsArray(contract, selectedRole);
-      
-      const sortedComplaints = fetchedComplaints.sort((a, b) => b.timestamp - a.timestamp);
-      
-      setComplaints(sortedComplaints);
     } catch (err) {
-      console.error('Error fetching complaints:', err);
-      setError(err.message || 'Error fetching complaints');
+      console.error('Error details:', err);
+      setError('Failed to fetch reports: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -195,7 +181,12 @@ const ComplaintsDisplay = ({ selectedRole }) => {
         </div>
       )}
 
-      {error && <div className="error-message">{error}</div>}
+      {error && (
+        <div className="error-message">
+          <i className="fas fa-exclamation-circle"></i>
+          {error}
+        </div>
+      )}
 
       <div className="complaints-grid">
         {complaints.map((complaint, index) => (
