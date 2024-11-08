@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/Snitch-admin/static/css/main.0737fd6e.css",
+    "main.js": "/Snitch-admin/static/js/main.6fb73773.js",
+    "static/js/453.b11d9126.chunk.js": "/Snitch-admin/static/js/453.b11d9126.chunk.js",
+    "index.html": "/Snitch-admin/index.html",
+    "main.0737fd6e.css.map": "/Snitch-admin/static/css/main.0737fd6e.css.map",
+    "main.6fb73773.js.map": "/Snitch-admin/static/js/main.6fb73773.js.map",
+    "453.b11d9126.chunk.js.map": "/Snitch-admin/static/js/453.b11d9126.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.0737fd6e.css",
+    "static/js/main.6fb73773.js"
+  ]
+}
