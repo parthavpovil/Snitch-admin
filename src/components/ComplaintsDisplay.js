@@ -90,7 +90,7 @@ const ComplaintCard = ({ complaint }) => {
   );
 };
 
-const ComplaintsDisplay = ({ selectedRole }) => {
+const ComplaintsDisplay = ({ selectedRole = 'police' }) => {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -106,21 +106,32 @@ const ComplaintsDisplay = ({ selectedRole }) => {
         const signer = await provider.getSigner();
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-        // Determine which array to fetch based on selectedRole
+        console.log('Fetching reports for role:', selectedRole);
+        
         let complaintArray = [];
         let index = 0;
         let hasMore = true;
 
-        while (hasMore) {
+        while (hasMore && index < 100) {
           try {
             let complaint;
-            if (selectedRole === 'police') {
-              complaint = await contract.policeComplaints(index);
-            } else if (selectedRole === 'customs') {
-              complaint = await contract.customsComplaints(index);
-            } else if (selectedRole === 'incometax') {
-              complaint = await contract.incomeTaxComplaints(index);
+            switch(selectedRole.toLowerCase()) {
+              case 'police':
+                complaint = await contract.policeComplaints(index);
+                break;
+              case 'customs':
+                complaint = await contract.customsComplaints(index);
+                break;
+              case 'incometax':
+                complaint = await contract.incomeTaxComplaints(index);
+                break;
+              default:
+                console.log('Unknown role:', selectedRole);
+                hasMore = false;
+                continue;
             }
+
+            console.log('Fetched complaint:', complaint);
 
             if (complaint && complaint.reporter !== '0x0000000000000000000000000000000000000000') {
               complaintArray.push({
@@ -138,12 +149,12 @@ const ComplaintsDisplay = ({ selectedRole }) => {
               hasMore = false;
             }
           } catch (err) {
-            console.log('Reached end of array or error:', err);
+            console.log('Reached end of array or error at index:', index, err);
             hasMore = false;
           }
         }
 
-        console.log('Fetched complaints:', complaintArray);
+        console.log('Total complaints found:', complaintArray.length);
         setComplaints(complaintArray);
       } else {
         throw new Error('MetaMask is not installed');
@@ -157,19 +168,17 @@ const ComplaintsDisplay = ({ selectedRole }) => {
   };
 
   useEffect(() => {
-    if (selectedRole) {
-      fetchComplaints();
-    }
+    fetchComplaints();
   }, [selectedRole]);
 
   return (
     <div className="complaints-container">
       <div className="complaints-header">
         <div className="header-left">
-          <h2>Recent Reports</h2>
+          <h2>{selectedRole.toUpperCase()} Reports</h2>
           <span className="report-count">{complaints.length} reports</span>
         </div>
-        <button onClick={fetchComplaints} className="refresh-button">
+        <button onClick={() => fetchComplaints()} className="refresh-button">
           <i className="fas fa-sync-alt"></i> Refresh
         </button>
       </div>
