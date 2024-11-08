@@ -8,7 +8,7 @@ const ComplaintCard = ({ complaint }) => {
 
   const isImage = (cid) => {
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    return imageExtensions.some(ext => complaint.mediaCID.toLowerCase().includes(ext));
+    return imageExtensions.some(ext => cid.toLowerCase().includes(ext));
   };
 
   const renderMediaPreview = () => {
